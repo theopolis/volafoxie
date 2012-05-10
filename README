@@ -1,0 +1,40 @@
+== Reading Kernel Memory ==
+
+There are several ways on OS X (as of this writing, 10.7.3) to read Kernel Memory:
+
+(1) Download MacMemoryReader 
+[http://www.cybermarshal.com/index.php/cyber-marshal-utilities/mac-memory-reader]
+Without using their program, look in 'supportfiles' for the devmem 10X 
+for your version of OS X:
+
+../MacMemoryReader/supportfiles/
+├── PE_state_raw.dtrace
+├── devmem.104x.tgz
+├── devmem.105x.tgz
+├── devmem.106x.tgz
+├── devmem.107x.tgz
+
+$ tar xzf devmem.107x.tgz
+# chown -R root:wheel devmem.kext
+# kextload devmem.kext
+
+(2) Follow the Chapter 8 guide from OS X Internals
+[http://osxbook.com/book/bonus/chapter8/kma/]
+
+This requires you to compile a KernelMemoryAccess driver using Xcode. I tried
+for a few minutes to write a Makefile for it without success. And I wasn't able 
+to compile without XNU version 1228.9.59.
+
+(3) Set kmem=1 in your boot-args through nvram
+Check to make sure you don't have any existing boot-args
+
+$ nvram -p | grep boot-args
+
+If you do, make sure you include them:
+
+# nvram boot-args="kmem=1"
+
+(4) Create an OS X VMware Virtual Machine using VMware Fusion, then use the 
+corresponding *.vmem file.
+
+(5) Others, like reading the memory using RDMA.
