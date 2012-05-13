@@ -74,14 +74,16 @@ class Volafoxie():
         '11A511': '10.7.0',
         '11826': '10.7.1',
         '11C74': '10.7.2',
+        '11D50': '10.7.3',
         '11D50b': '10.7.3',
         'Darwin': 'Darwin'
     }
     
-    def __init__(self, mempath):
+    def __init__(self, mempath, debug=False):
 ##        self.idlepdpt = pdpt
 ##        self.idlepml4 = pml4 ### 11.09.28 n0fate
         self.mempath = mempath
+        self.debug = debug
         '''Set baseAddressSpace'''
         if isMachoVolafoxCompatible(self.mempath):
             self.membase = MachoAddressSpace(self.mempath) 
@@ -135,10 +137,10 @@ class Volafoxie():
         self.idlepdpt = pdpt
         self.idlepml4 = pml4
         
-        pbdr = self.idlepdpt if self.arch is 32 else self.idlepml4 #pbdr
-        #self.membase = MachoAddressSpace(self.mempath) if isMachoVolafoxCompatible(self.mempath) else FileAddressSpace(self.mempath) #baseAddressSpace
-        
-        self.x86_mem_pae = IA32PagedMemoryPae(self.membase, pbdr)
+        if self.arch == 32:
+            self.x86_mem_pae = IA32PagedMemoryPae(self.membase, self.idlepdpt)
+        else:
+            self.x86_mem_pae = IA32PML4MemoryPae(self.membase, self.idlepml4)
         return True
     
     def sleep_time(self, sym_addr):
@@ -242,7 +244,7 @@ class Volafoxie():
             mount_info_len    = 2276
             mount_info_format = '=Q204x16s1024s1024s'
             
-        mount_ptr = struct.unpack(mount_ptr_type, self.x86_mem_pae.read(sym_addr), mount_ptr_len)
+        mount_ptr = struct.unpack(mount_ptr_type, self.x86_mem_pae.read(sym_addr, mount_ptr_len))
         while True:
             if mount_ptr[0] == 0 or not self.x86_mem_pae.is_valid_address(mount_ptr[0]):
                 break
@@ -299,7 +301,7 @@ class Volafoxie():
     def syscall_info(self, sym_addr): # 11.11.23 64bit support
         syscall_list = []
         
-        if sys.arch == 32:
+        if self.arch == 32:
             sysent_ptr_len = 4
             sysent_ptr_type = 'I'
             sysent_len = 24
@@ -310,7 +312,7 @@ class Volafoxie():
             sysent_len = 40
             sysent_format = 'hbbQQQII'
         
-        sysent_ptr = struct.unpack(sysent_ptr_type, self.x86_mem_pae.read(sym_addr), sysent_ptr_len)
+        sysent_ptr = struct.unpack(sysent_ptr_type, self.x86_mem_pae.read(sym_addr, sysent_ptr_len))
         sysent_addr = sym_addr - (sysent_ptr[0] * sysent_len) 
         
         for count in range(0, sysent_ptr[0]):
@@ -582,30 +584,6 @@ class Volafoxie():
             temp_ptr = in_network[2]
             
         return network_list
-    
-
-def usage():
-    print 'volafox(Memory analyzer for OS X) 0.7 alpha1'
-    print 'Contact: rapfer@gmail.com / n0fate@live.com'
-    print 'usage: python %s -i MEMORY_IMAGE [-o INFORMATION][-m KEXT ID][-x PID]\n'%sys.argv[0]
-    print '-= CAUTION =-'
-    print 'Requrements: Physical memory image(linear format), overlay data(symbol list)'
-    print 'Supported OS: Snow Leopard(10.6.x), Lion(10.7.x)\n'
-    print 'Supported Architecture: Intel 32bit & 64bit\n'
-    print 'Option:'
-    print '-o        : Gathering information using symbol'
-    print '-m        : Dump module using module id'
-    print '-x        : Dump process using pid\n'
-    print 'INFORMATION:'
-    print 'os_version         Dawin kernel detail version'
-    print 'machine_info         Kernel version, cpu, memory information'
-    print 'mount_info         Mount information'
-    print 'kern_kext_info         Kernel KEXT(Kernel Extensions) information'
-    print 'kext_info         KEXT(Kernel Extensions) information'
-    print 'proc_info         Process list'
-    print 'syscall_info         Kernel systemcall information'
-    print 'net_info         network information(hash table)'
-#    print 'net_info_test         network information(plist), (experiment)'
 
 class Volafoxie_Module(object):
     def __init__(self):
@@ -834,7 +812,7 @@ def main():
 ##        symbol_list = pickle.load(f)
 ##        f.close()
 ##
-    volafox = Volafoxie(args.image)
+    volafox = Volafoxie(args.image, debug=True)
 
     ## get kernel version, architecture ##
     image_data = volafox.GetKernelVersion()
@@ -858,8 +836,8 @@ def main():
         sys.exit()
 
     ## open overlay file
-    overlay_path = os.path.join(["overlays", "%s_%d.overlay" % (image_data["kernel_version"], image_data["architecture"])])
-    #filepath = 'overlays/%s_%d.overlay'%(kernel_version, architecture)
+    #overlay_path = os.path.join(["overlays", "%s_%d.overlay" % (image_data["kernel_version"], image_data["architecture"])])
+    overlay_path = 'overlays/%s_%d.overlay'%(image_data["kernel_version"], image_data["architecture"])
 
     try:
         overlay_fp = open(overlay_path, 'rb')
@@ -878,6 +856,7 @@ def main():
 ### 11.09.28 start n0fate
     ## Pre-loading Machine Information for storing Major Kernel Version
     ## It is used to code branch according to major kernel version
+    print symbol_list['_machine_info']
     volafox.MachineInfo(symbol_list['_machine_info'])
 ### 11.09.28 end n0fate    
 
