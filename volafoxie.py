@@ -736,15 +736,15 @@ class Module_ImageInfo(Volafoxie_Module):
         for network in network_list:
             print '[UDP] Local Address: %s:%d, Foreign Address: %s:%d, flag: %x'%(network[1], network[3], network[2], network[4], network[0])
     def output(self):
-        self.GetOsVersion()
+        #self.GetOsVersion()
         self.GetProcInfo()
-        self.GetSyscallInfo()
-        self.GetKernelKextInfo()
-        self.GetKextInfo()
-        self.GetMachineInfo()
-        self.GetMountInfo()
-        self.GetNetInfo()
-        self.GetNetInfoTest()
+        #self.GetSyscallInfo()
+        #self.GetKernelKextInfo()
+        #self.GetKextInfo()
+        #self.GetMachineInfo()
+        #self.GetMountInfo()
+        #self.GetNetInfo()
+        #self.GetNetInfoTest()
 
 class Module_ProcDump(Volafoxie_Module):
     def __init__(self, pid):
