@@ -1,6 +1,10 @@
-== Reading Kernel Memory ==
+== Intro ==
+Volafoxie is a custom version of n0fate's volafox. Volafoxie intends to bring a 
+volatility look/feel to the application, as well as provide a small playground for 
+my volatile analysis learning. Definitely a WIP.
 
-There are several ways on OS X (as of this writing, 10.7.3) to read Kernel Memory:
+== Reading Physical Memory ==
+There are several ways on OS X (as of this writing, 10.7.3) to read Physical Memory:
 
 (1) Download MacMemoryReader 
 [http://www.cybermarshal.com/index.php/cyber-marshal-utilities/mac-memory-reader]
@@ -22,8 +26,8 @@ $ tar xzf devmem.107x.tgz
 [http://osxbook.com/book/bonus/chapter8/kma/]
 
 This requires you to compile a KernelMemoryAccess driver using Xcode. I tried
-for a few minutes to write a Makefile for it without success. And I wasn't able 
-to compile without XNU version 1228.9.59.
+to write a Makefile for it without success. And I wasn't able to compile without 
+XNU version 1228.9.59.
 
 (3) Set kmem=1 in your boot-args through nvram
 Check to make sure you don't have any existing boot-args
@@ -38,3 +42,11 @@ If you do, make sure you include them:
 corresponding *.vmem file.
 
 (5) Others, like reading the memory using RDMA.
+
+== How to Use Volafoxie ==
+It requires Python >2.7 at the moment. 
+$ python ./volafoxie -h
+
+== Volafox / Volatility ==
+Check out [http://code.google.com/p/volafox/] volafox!
+Check out [http://code.google.com/p/volatility/] volatility!
