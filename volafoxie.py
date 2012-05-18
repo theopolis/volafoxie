@@ -40,17 +40,15 @@ import pdb # For the debugger
 
 #from imageinfo import * # user defined class > CL
 import pickle # added by CL
-
 import os
+import struct
 
-from x86 import *
-#from addrspace import FileAddressSpace
-from macho import MachoAddressSpace, isMachoVolafoxCompatible #, is_universal_binary
+from volafoxie.x86 import IA32PagedMemoryPae
+from volafoxie.macho import MachoAddressSpace, isMachoVolafoxCompatible #, is_universal_binary
+import volafoxie.addrspace as addrspace
+import volafoxie.imageinfo as imageinfo
+import volafoxie.ia32_pml4 as ia32_pml4
 
-#import struct
-import addrspace
-import imageinfo
-import ia32_pml4
 
 ###############################################################################
 #
@@ -591,159 +589,6 @@ class Volafoxie():
             
         return network_list
 
-class Volafoxie_Module(object):
-    def __init__(self):
-        pass
-    def start(self, instance=None, symbol_list={}):
-        self.volafoxie = instance
-        self.symbol_list = symbol_list
-        self.calculate()
-        pass
-    def calculate(self):
-        pass
-    def output(self):
-        pass
-
-class Module_ImageInfo(Volafoxie_Module):
-    def __init__(self, info=[]):
-        pass
-    
-    def GetOsVersion(self):
-        data = self.volafoxie.os_info(self.symbol_list['_osversion'])
-        output = '[+] Detail Darwin kernel version: %s\n'%data[0].strip('\x00')
-        return output
-
-    def GetMachineInfo(self):
-        output = '\n[+] Mac OS X Basic Information\n'
-        data = self.volafoxie.MachineInfo(self.symbol_list['_machine_info'])
-        output += ' [-] Major Version: %d\n'%data[0]
-        output += ' [-] Minor Version: %d\n'%data[1]
-        output += ' [-] Number of Physical CPUs: %d\n'%data[2]
-        output += ' [-] Size of memory in bytes: %d bytes\n'%data[3]
-        output += ' [-] Size of physical memory: %d bytes\n'%data[4]
-        output += ' [-] Number of physical CPUs now available: %d\n'%data[5]
-        output += ' [-] Max number of physical CPUs now possible: %d\n'%data[6]
-        output += ' [-] Number of logical CPUs now available: %d\n'%data[7]
-        output += ' [-] Max number of logical CPUs now possible: %d\n'%data[8]
-        return output
-
-    def GetKernelKextInfo(self):
-        data = self.volafoxie.kernel_kext_info(self.symbol_list['_g_kernel_kmod_info'])
-        output = '\n-= Kernel Extentions(Kext) =-\n'
-        output += "{:<19} {:<4} {:<3} {:<40} {:<10} {:<4} {:<19} {:<19} {:<7} {:<7} {:<19} {:<19}\n".format(
-            'kmod_info_ptr', 'iver', 'id', 'name', 'version', 'refs', 'reference_list', 'address_ptr', 'size', 'hdr_size', 'start_ptr', 'stop_ptr')
-        #sys.stdout.write( 'kmod_info_ptr        info_version        id        name        version        reference_count        reference_list        address_ptr        size        hdr_size        start_ptr        stop_ptr')
-        #sys.stdout.write('\n')
-
-        output += "{0[0]:<#19x} {0[1]:<4} {0[2]:<3} {0[3]:<40} {0[4]:<10} {0[5]:<4} {0[6]:<#19x} {0[7]:<#19x} {0[8]:<7} {0[9]:<7} {0[10]:<#19x} {0[11]:<#19x}".format(
-            [x.strip('\x00') if type(x) == str else x for x in data])
-        return output
-
-    def GetKextInfo(self):
-        data_list = self.volafoxie.kext_info(self.symbol_list['_kmod'])
-        output = '\n-= Kernel Extentions(Kext) =-\n'
-        output += "{:<19} {:<4} {:<3} {:<40} {:<10} {:<4} {:<19} {:<19} {:<7} {:<7} {:<19} {:<19}\n".format(
-            'kmod_info_ptr', 'iver', 'id', 'name', 'version', 'refs', 'reference_list', 'address_ptr', 'size', 'hdr_size', 'start_ptr', 'stop_ptr')
-        #sys.stdout.write( 'kmod_info_ptr        info_version        id        name        version        reference_count        reference_list        address_ptr        size        hdr_size        start_ptr        stop_ptr')
-        #sys.stdout.write('\n')
-
-        for data in data_list:
-            output += "{0[0]:<#19x} {0[1]:<4} {0[2]:<3} {0[3]:<40} {0[4]:<10} {0[5]:<4} {0[6]:<#19x} {0[7]:<#19x} {0[8]:<7} {0[9]:<7} {0[10]:<#19x} {0[11]:<#19x}\n".format(
-                [x.strip('\x00') if type(x) == str else x for x in data])
-        return output
-
-    def GetMountInfo(self):
-        data_list = self.volafoxie.mount_info(self.symbol_list['_mountlist'])
-        output = '\n-= Mount List =-\n'
-        # there should be a better way to do this...?
-        sink_max = max([len(data[2].strip('\x00')) for data in data_list])
-        source_max = max([len(data[3].strip('\x00')) for data in data_list])
-
-        output += "{:<19} {:<10} {:<{sink_width}} {:<{source_width}}\n".format(
-            'list entry-next', 'fstypename', 'mount on', 'mount from', sink_width=sink_max, source_width=source_max)
-        for data in data_list:
-            output += "{0[0]:<#19x} {0[1]:<10} {0[2]:<{sink_width}} {0[3]:<{source_width}}\n".format(
-                [x.strip('\x00') if type(x) == str else x for x in data], sink_width=sink_max, source_width=source_max)    
-        return output       
-
-    def GetProcInfo(self):
-        data_list = self.volafoxie.process_info(self.symbol_list['_kernproc'])
-        output = '\n-= process list =-\n'
-        output += "{:<20} {:>5} {:>5} {:<20} {:<20}\n".format('list_entry_next', 'pid', 'ppid', 'name', 'username')
-        for data in data_list:
-            output += "{0[0]:<#20x} {0[1]:>5} {0[4]:>5} {name:<20} {0[8]:<20}\n".format(data, name=data[6].split('\x00', 1)[0])
-        return output
-
-    def GetSyscallInfo(self):
-        data_list = self.volafoxie.syscall_info(self.symbol_list['_nsysent'])
-        output = '\n-= syscall list =-\n'
-        output += "{:<3} {:<4} {:<4} {:<5} {:<19} {:<19} {:<3} {:<9} {:<15} {:<30}\n".format(
-            'num', 'narg', 'resv', 'flags', 'arg_munge32_ptr', 'arg_munge64_ptr', 'ret', 'arg_bytes', 'Address Type', 'call_ptr',)
-        #print 'number        sy_narg        sy_resv        sy_flags        sy_call_ptr        sy_arg_munge32_ptr        sy_arg_munge64_ptr        sy_ret_type        sy_arg_bytes        Valid Function Address'
-        for (count, data) in enumerate(data_list):
-            output += "{count:<3} {0[0]:<4} {0[1]:<4} {0[2]:<5} {0[4]:<#19x} {0[5]:<#19x} {0[6]:<3} {0[7]:<9} ".format(data, count=count)
-            call_ptr = [name for name, addr in self.symbol_list.iteritems() if addr == data[3]]
-            if len(call_ptr) > 0:
-                output += "{:<15} {:<30}".format("valid function", call_ptr[0])
-            else:
-                output += "{:<15} {:<#19x}".format("syscall hooking", data[3])
-            output += '\n'
-        return output
-
-    def GetNetInfo(self):
-        output = '\n-= NETWORK INFORMATION (hashbase) =-\n'
-        network_list = self.volafoxie.net_info(self.symbol_list['_tcbinfo'], self.symbol_list['_IdlePML4'])
-        for network in network_list:
-            output += '[TCP] Local Address: {0[1]}:{0[3]:<5}, Foreign Address: {0[2]}:{0[4]:<5}, flag: {0[0]:<#x}\n'.format(network)
-            
-        network_list = self.volafoxie.net_info(self.symbol_list['_udbinfo'], self.symbol_list['_IdlePML4'])
-        for network in network_list:
-            output += '[UDP] Local Address: {0[1]}:{0[3]:<5}, Foreign Address: {0[2]}:{0[4]:<5}, flag: {0[0]:<#x}\n'.format(network)
-        return output
-
-    def GetNetInfoTest(self):
-        output = '\n-= NETWORK INFORMATION (plist) =-\n'
-        network_list = self.volafoxie.net_info_test(self.symbol_list['_tcbinfo'], self.symbol_list['_IdlePML4'])
-        for network in network_list:
-            output += '[TCP] Local Address: {0[1]}:{0[3]:<5}, Foreign Address: {0[2]}:{0[4]:<5}, flag: {0[0]:<#x}\n'.format(network)
-            
-        network_list = self.volafoxie.net_info_test(self.symbol_list['_udbinfo'], self.symbol_list['_IdlePML4'])
-        for network in network_list:
-            output += '[UDP] Local Address: {0[1]}:{0[3]:<5}, Foreign Address: {0[2]}:{0[4]:<5}, flag: {0[0]:<#x}\n'.format(network)
-        return output
-    
-    def output(self):
-        print self.GetOsVersion()
-        print self.GetProcInfo()
-        print self.GetSyscallInfo()
-        print self.GetKernelKextInfo()
-        print self.GetKextInfo()
-        print self.GetMachineInfo()
-        print self.GetMountInfo()
-        print self.GetNetInfo()
-        print self.GetNetInfoTest()
-
-class Module_ProcDump(Volafoxie_Module):
-    def __init__(self, pid):
-        self.pid = pid
-        pass
-    def calculate(self):
-        self.volafoxie.vaddump(self.symbol_list['_kernproc'], self.pid)
-        pass
-
-class Module_KextDump(Volafoxie_Module):
-    def __init__(self, kext):
-        self.kext = kext
-        pass
-    def calculate(self):
-        data_list = self.volafoxie.kext_info(self.symbol_list['_kmod'])
-        for data in data_list:
-            if data[2] == self.kext:
-                print 'find kext, offset: %x, size: %x'%(data[7], data[8])
-                self.volafoxie.kextdump(data[7], data[8], data[3].replace('\x00', '')) # addr, size, name
-        pass
-        #sys.exit()
-
 def main():
     import argparse
     import sys 
@@ -815,7 +660,7 @@ def main():
 
     ## open overlay file
     #overlay_path = os.path.join(["overlays", "%s_%d.overlay" % (image_data["kernel_version"], image_data["architecture"])])
-    overlay_path = 'overlays/%s_%d.overlay'%(image_data["kernel_version"], image_data["architecture"])
+    overlay_path = 'volafoxie/plugins/overlays/%s_%d.overlay'%(image_data["kernel_version"], image_data["architecture"])
 
     try:
         overlay_fp = open(overlay_path, 'rb')
@@ -839,14 +684,18 @@ def main():
 ### 11.09.28 end n0fate    
 
     if args.kext is not None:
-        module = Module_KextDump(kext=args.kext)
+        from volafoxie.plugins.kextdump import kextdump
+        module = kextdump(kext=args.kext)
     if args.pid is not None:
-        module = Module_ProcDump(pid=args.pid)
+        from volafoxie.plugins.procdump import procdump
+        module = procdump(pid=args.pid)
     if not args.pid and not args.kext:
-        module = Module_ImageInfo()
+        from volafoxie.plugins.procinfo import procinfo
+        module = procinfo()
     
     module.start(volafox, symbol_list=symbol_list)
-    print module.output()
+    module.calculate()
+    module.execute()
 
 
 if __name__ == "__main__":
